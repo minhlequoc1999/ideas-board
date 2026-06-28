@@ -66,6 +66,7 @@
   }
   button { font-family: inherit; cursor: pointer; }
   svg { display: block; }
+  [hidden] { display: none !important; }
   .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .icon-sm { width: 15px; height: 15px; }
 
@@ -301,6 +302,28 @@
   .newtag input { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface-2); border-radius: 9px; padding: 9px 11px; font-size: 14px; color: var(--text); font-family: inherit; }
   .newtag input:focus { outline: none; border-color: var(--accent); }
   .modal-note { font-size: 12.5px; color: var(--muted); padding: 4px 0 8px; }
+
+  /* ---------- Sync ---------- */
+  .iconbtn.synced { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .sync-row { display: flex; flex-direction: column; gap: 12px; }
+  .sync-note { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .sync-note a { color: var(--accent-text); font-weight: 600; }
+  .sync-input { border: 1px solid var(--border); background: var(--surface-2); border-radius: 9px; padding: 10px 12px; font-size: 14px; color: var(--text); font-family: inherit; width: 100%; }
+  .sync-input:focus { outline: none; border-color: var(--accent); }
+  .sync-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn { border: none; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; padding: 10px 16px; }
+  .btn:hover { filter: brightness(1.07); }
+  .btn.danger { background: transparent; color: var(--overdue); }
+  .btn.danger:hover { background: var(--overdue-soft); }
+  .status-pill { font-size: 12.5px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; }
+  .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .status-pill.ok .dot { background: #10b981; }
+  .status-pill.err .dot { background: var(--overdue); }
+  .status-pill.busy .dot { background: var(--soon); }
+  .steps { font-size: 13px; color: var(--muted); line-height: 1.6; padding-left: 20px; margin: 2px 0; }
+  .steps li { margin: 4px 0; }
+  .steps a { color: var(--accent-text); font-weight: 600; }
+  .warn { font-size: 12px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
 </style>
 
 <header>
@@ -314,6 +337,7 @@
       <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input id="search" type="search" placeholder="Search…" autocomplete="off" />
     </label>
+    <button class="iconbtn" id="syncBtn" title="Sync across devices"><svg class="icon" viewBox="0 0 24 24"><path d="M17.5 19H9A7 7 0 1 1 15.7 10H17.5a4.5 4.5 0 1 1 0 9z"/></svg></button>
     <button class="iconbtn" id="docImportBtn" title="Create tasks from a .txt or .md file"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></button>
     <button class="iconbtn" id="exportBtn" title="Export backup (.json)"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
     <button class="iconbtn" id="importBtn" title="Import backup (.json)"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>
@@ -391,6 +415,16 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="syncModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Sync across devices</h3><span class="spacer"></span>
+      <button class="iconbtn" id="syncModalClose" title="Close"></button>
+    </div>
+    <div id="syncBody"></div>
+  </div>
+</div>
+
 <input type="date" id="deadlinePicker" class="visually-hidden" />
 
 <script>
@@ -410,7 +444,8 @@
     sun: '<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.9" y1="4.9" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.1" y2="19.1"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.9" y1="19.1" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.1" y2="4.9"/>',
     moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>',
     tag: '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20.6 13.4 12 22l-8.6-8.6A2 2 0 0 1 3 12V4a1 1 0 0 1 1-1h8a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.6z"/><circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none"/></svg>',
-    x: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    x: '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    cloud: '<svg class="icon" viewBox="0 0 24 24"><path d="M17.5 19H9A7 7 0 1 1 15.7 10H17.5a4.5 4.5 0 1 1 0 9z"/></svg>'
   };
 
   // ---------- State ----------
@@ -441,7 +476,7 @@
       completedAt: t.completedAt || null
     };
   }
-  function save() { localStorage.setItem(STORE_KEY, JSON.stringify(todos)); }
+  function save() { localStorage.setItem(STORE_KEY, JSON.stringify(todos)); afterChange(); }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function find(id) { for (var i = 0; i < todos.length; i++) if (todos[i].id === id) return todos[i]; return null; }
 
@@ -805,7 +840,7 @@
     try { var r = JSON.parse(localStorage.getItem(TAGS_KEY) || "[]"); return Array.isArray(r) ? r.filter(function (x) { return x && x.id && x.name; }) : []; }
     catch (e) { return []; }
   }
-  function saveTags() { localStorage.setItem(TAGS_KEY, JSON.stringify(tags)); }
+  function saveTags() { localStorage.setItem(TAGS_KEY, JSON.stringify(tags)); afterChange(); }
   function tagById(id) { for (var i = 0; i < tags.length; i++) if (tags[i].id === id) return tags[i]; return null; }
   function tagByName(name) { var n = name.trim().toLowerCase(); for (var i = 0; i < tags.length; i++) if (tags[i].name.toLowerCase() === n) return tags[i]; return null; }
   function nextColor() { return PALETTE[tags.length % PALETTE.length]; }
@@ -968,8 +1003,178 @@
     save(); saveTags(); renderFilters(); render();
   }
 
+  // =====================================================================
+  // Cross-device sync via a private GitHub Gist (free, no server)
+  // =====================================================================
+  var SYNC_KEY = "ideas.sync.v1";
+  var UPDATED_KEY = "ideas.updatedAt.v1";
+  var GIST_FILE = "ideas-board.json";
+  var GIST_DESC = "Ideas Board sync — do not delete";
+  var sync = loadSync();
+  var localUpdatedAt = +(localStorage.getItem(UPDATED_KEY) || 0);
+  var applyingRemote = false;
+  var pushTimer = null;
+  var lastSyncMsg = "";
+  var lastSyncCls = "";
+
+  function loadSync() { try { var s = JSON.parse(localStorage.getItem(SYNC_KEY) || "null"); return s && s.token && s.gistId ? s : { token: "", gistId: "" }; } catch (e) { return { token: "", gistId: "" }; } }
+  function saveSync() { localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); }
+  function authHeaders() { return { "Authorization": "Bearer " + sync.token, "Accept": "application/vnd.github+json" }; }
+  function isConnected() { return !!(sync.token && sync.gistId); }
+  function payload() { return JSON.stringify({ todos: todos, tags: tags, updatedAt: localUpdatedAt }); }
+
+  function afterChange() {
+    if (applyingRemote) return;
+    localUpdatedAt = Date.now();
+    localStorage.setItem(UPDATED_KEY, String(localUpdatedAt));
+    if (isConnected()) schedulePush();
+  }
+  function schedulePush() { clearTimeout(pushTimer); setSyncStatus("busy", "Saving…"); pushTimer = setTimeout(pushNow, 1500); }
+
+  function pushNow() {
+    if (!isConnected()) return;
+    var body = { files: {} }; body.files[GIST_FILE] = { content: payload() };
+    fetch("https://api.github.com/gists/" + sync.gistId, { method: "PATCH", headers: authHeaders(), body: JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw r; return r.json(); })
+      .then(function () { setSyncStatus("ok", "Synced"); })
+      .catch(function () { setSyncStatus("err", "Sync error — retries on next change"); });
+  }
+  function pull() {
+    return fetch("https://api.github.com/gists/" + sync.gistId, { headers: authHeaders(), cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw r; return r.json(); })
+      .then(function (g) { var f = g.files && g.files[GIST_FILE]; if (!f || !f.content) return null; try { return JSON.parse(f.content); } catch (e) { return null; } });
+  }
+  function adoptRemote(data) {
+    applyingRemote = true;
+    todos = (data.todos || []).map(normalize).filter(Boolean);
+    tags = Array.isArray(data.tags) ? data.tags.filter(function (x) { return x && x.id && x.name; }) : [];
+    localUpdatedAt = typeof data.updatedAt === "number" ? data.updatedAt : Date.now();
+    localStorage.setItem(UPDATED_KEY, String(localUpdatedAt));
+    save(); saveTags();
+    applyingRemote = false;
+    renderFilters(); render();
+  }
+  function mergeUnion(remote) {
+    var rt = (remote.todos || []).map(normalize).filter(Boolean);
+    var rids = {}; rt.forEach(function (t) { rids[t.id] = true; });
+    var mergedTodos = rt.concat(todos.filter(function (t) { return !rids[t.id]; }));
+    var rtags = Array.isArray(remote.tags) ? remote.tags.filter(function (x) { return x && x.id && x.name; }) : [];
+    var rtagids = {}; rtags.forEach(function (t) { rtagids[t.id] = true; });
+    var mergedTags = rtags.concat(tags.filter(function (t) { return !rtagids[t.id]; }));
+    applyingRemote = true;
+    todos = mergedTodos; tags = mergedTags;
+    localUpdatedAt = Date.now(); localStorage.setItem(UPDATED_KEY, String(localUpdatedAt));
+    save(); saveTags();
+    applyingRemote = false;
+    renderFilters(); render();
+  }
+  function findOrCreateGist() {
+    return fetch("https://api.github.com/gists?per_page=100", { headers: authHeaders() })
+      .then(function (r) { if (!r.ok) throw r; return r.json(); })
+      .then(function (list) {
+        for (var i = 0; i < list.length; i++) {
+          var g = list[i];
+          if ((g.files && g.files[GIST_FILE]) || g.description === GIST_DESC) return g.id;
+        }
+        var body = { description: GIST_DESC, public: false, files: {} };
+        body.files[GIST_FILE] = { content: payload() };
+        return fetch("https://api.github.com/gists", { method: "POST", headers: authHeaders(), body: JSON.stringify(body) })
+          .then(function (r) { if (!r.ok) throw r; return r.json(); })
+          .then(function (g) { return g.id; });
+      });
+  }
+  function connect(token) {
+    sync.token = token.trim();
+    setSyncStatus("busy", "Connecting…");
+    findOrCreateGist().then(function (gistId) {
+      sync.gistId = gistId; saveSync();
+      return pull().then(function (remote) {
+        if (remote && ((remote.todos && remote.todos.length) || (remote.tags && remote.tags.length))) mergeUnion(remote);
+        pushNow();
+        setSyncStatus("ok", "Connected");
+        renderSyncBtn(); renderSyncModal();
+      });
+    }).catch(function () {
+      sync.token = ""; sync.gistId = "";
+      setSyncStatus("err", "Couldn't connect — check the token has the 'gist' scope");
+      renderSyncModal();
+    });
+  }
+  function disconnect() { sync = { token: "", gistId: "" }; saveSync(); lastSyncCls = ""; lastSyncMsg = ""; renderSyncBtn(); renderSyncModal(); }
+  function syncNow() {
+    if (!isConnected()) return;
+    setSyncStatus("busy", "Syncing…");
+    pull().then(function (remote) {
+      if (remote && typeof remote.updatedAt === "number" && remote.updatedAt > localUpdatedAt) { adoptRemote(remote); setSyncStatus("ok", "Synced"); }
+      else pushNow();
+    }).catch(function () { setSyncStatus("err", "Sync error"); });
+  }
+
+  // ---- Sync UI ----
+  var syncBtn = document.getElementById("syncBtn");
+  var syncModal = document.getElementById("syncModal");
+  document.getElementById("syncModalClose").innerHTML = ICON.x;
+  document.getElementById("syncModalClose").addEventListener("click", function () { syncModal.hidden = true; });
+  syncModal.addEventListener("click", function (e) { if (e.target === syncModal) syncModal.hidden = true; });
+  syncBtn.addEventListener("click", function () { renderSyncModal(); syncModal.hidden = false; });
+
+  function setSyncStatus(cls, msg) {
+    lastSyncCls = cls; lastSyncMsg = msg;
+    var el = document.getElementById("syncStatus");
+    if (el) { el.className = "status-pill " + cls; el.innerHTML = '<span class="dot"></span>' + esc(msg || (isConnected() ? "Connected" : "Not connected")); }
+    renderSyncBtn();
+  }
+  function renderSyncBtn() { if (isConnected()) syncBtn.classList.add("synced"); else syncBtn.classList.remove("synced"); }
+  function renderSyncModal() {
+    var body = document.getElementById("syncBody");
+    if (isConnected()) {
+      body.innerHTML =
+        '<div class="sync-row">' +
+          '<div id="syncStatus" class="status-pill ' + (lastSyncCls || "ok") + '"><span class="dot"></span>' + esc(lastSyncMsg || "Connected") + '</div>' +
+          '<div class="sync-note">Your ideas sync to a <strong>private gist</strong> on your GitHub account. Open this site on any device, connect with the same token, and everything stays in step — changes save automatically.</div>' +
+          '<div class="sync-actions"><button class="btn" id="syncNowBtn">Sync now</button><button class="btn danger" id="disconnectBtn">Disconnect this device</button></div>' +
+        '</div>';
+      document.getElementById("syncNowBtn").addEventListener("click", syncNow);
+      document.getElementById("disconnectBtn").addEventListener("click", function () { if (confirm("Disconnect sync on this device?\n\nYour data stays here and in the cloud — this just stops syncing on this device.")) disconnect(); });
+    } else {
+      body.innerHTML =
+        '<div class="sync-row">' +
+          '<div class="sync-note">Sync your board across phone &amp; computer using a <strong>private GitHub gist</strong> — free, no server, only you can see it.</div>' +
+          '<ol class="steps">' +
+            '<li><a href="https://github.com/settings/tokens/new?scopes=gist&description=Ideas%20Board%20Sync" target="_blank" rel="noopener">Open GitHub → create token</a> (the <strong>gist</strong> scope is pre-checked).</li>' +
+            '<li>Scroll down, click <em>Generate token</em>, and copy it.</li>' +
+            '<li>Paste it below and Connect. Repeat on each device.</li>' +
+          '</ol>' +
+          '<input class="sync-input" id="syncToken" type="password" placeholder="Paste GitHub token (ghp_…)" autocomplete="off" />' +
+          '<div id="syncStatus" class="status-pill ' + lastSyncCls + '"><span class="dot"></span>' + esc(lastSyncMsg || "Not connected") + '</div>' +
+          '<div class="sync-actions"><button class="btn" id="connectBtn">Connect</button></div>' +
+          '<div class="warn">The token is stored only in this browser to talk to GitHub. Use a token with <strong>only the gist scope</strong>; you can revoke it anytime on GitHub.</div>' +
+        '</div>';
+      document.getElementById("connectBtn").addEventListener("click", function () {
+        var tk = document.getElementById("syncToken").value.trim();
+        if (!tk) { setSyncStatus("err", "Paste a token first"); return; }
+        connect(tk);
+      });
+      document.getElementById("syncToken").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); document.getElementById("connectBtn").click(); } });
+    }
+  }
+
+  // initial sync on load
+  if (isConnected()) {
+    renderSyncBtn();
+    pull().then(function (remote) {
+      if (remote && typeof remote.updatedAt === "number" && remote.updatedAt >= localUpdatedAt) { adoptRemote(remote); setSyncStatus("ok", "Synced"); }
+      else pushNow();
+    }).catch(function () { setSyncStatus("err", "Offline — using local copy"); });
+  }
+
   // Escape closes popover / modal
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closePop(); if (tagModal && !tagModal.hidden) closeTagManager(); } });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    closePop();
+    if (tagModal && !tagModal.hidden) closeTagManager();
+    if (syncModal && !syncModal.hidden) syncModal.hidden = true;
+  });
 
   render();
   capInput.focus();
