@@ -251,6 +251,7 @@
   footer a { color: var(--muted); }
 
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #deadlinePicker { position: fixed; left: 0; top: 0; width: 1px; height: 1px; padding: 0; margin: 0; border: 0; opacity: 0; pointer-events: none; z-index: 70; }
 
   /* ---------- Filter bar ---------- */
   .filterbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: -6px 2px 22px; }
@@ -425,7 +426,7 @@
   </div>
 </div>
 
-<input type="date" id="deadlinePicker" class="visually-hidden" />
+<input type="date" id="deadlinePicker" />
 
 <script>
 (function () {
@@ -652,12 +653,18 @@
   // ---------- Deadline picker ----------
   var deadlinePicker = document.getElementById("deadlinePicker");
   var pickingId = null;
-  function openDeadline(id) {
+  function openDeadline(id, anchor) {
     var t = find(id); if (!t) return;
     pickingId = id;
     deadlinePicker.value = t.deadline || "";
+    if (anchor) {
+      var r = anchor.getBoundingClientRect();
+      var w = 240; // approx native picker width, keep it on-screen
+      deadlinePicker.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w)) + "px";
+      deadlinePicker.style.top = Math.min(r.bottom + 2, window.innerHeight - 40) + "px";
+    }
     if (deadlinePicker.showPicker) { try { deadlinePicker.showPicker(); return; } catch (e) {} }
-    deadlinePicker.click();
+    deadlinePicker.focus(); deadlinePicker.click();
   }
   deadlinePicker.addEventListener("change", function () {
     var t = find(pickingId); if (t) { t.deadline = deadlinePicker.value || null; save(); render(); }
@@ -677,7 +684,7 @@
     else if (act === "pin") togglePin(t);
     else if (act === "edit") startEdit(card);
     else if (act === "del") delTodo(t);
-    else if (act === "deadline") openDeadline(t.id);
+    else if (act === "deadline") openDeadline(t.id, actEl);
     else if (act === "tags") openTagPopover(actEl, t);
   });
 
